@@ -3,6 +3,7 @@ export default function Navbar({ vistaActiva, onCambiarVista, pendientes, onRest
     { key: 'bandeja',   label: '📥 Bandeja',        badge: pendientes || null },
     { key: 'clientes',  label: '👥 Clientes',        badge: null },
     { key: 'noticias',  label: '📰 Corpus',          badge: null },
+    { key: 'fuentes',   label: '🌐 Fuentes',         badge: null },
     { key: 'bitacora',  label: '📋 Bitácora',        badge: null },
     { key: 'metricas',  label: '📊 Métricas',        badge: null },
   ];

@@ -1,12 +1,13 @@
 // Reglas explicables de scoring — según el documento del proyecto
+import { puntosConfiabilidad } from '../data/fuentesAutorizadas';
+
 const CARGOS_ALTO_NIVEL = [
   'ministro', 'ministra', 'director', 'directora', 'secretario', 'secretaria',
   'presidente', 'presidenta', 'vicepresidente', 'vicepresidenta', 'diputado', 'diputada',
   'magistrado', 'magistrada', 'fiscal', 'gobernador', 'gobernadora', 'embajador', 'embajadora',
   'superintendente', 'viceministro', 'viceministra', 'decano', 'rector', 'senador',
+  'alcalde', 'alcaldesa', 'cónsul', 'consul',
 ];
-
-const FUENTES_CONFIABLES = ['diarioficticio-a.example', 'notificticia-b.example'];
 
 function normalizar(str) {
   return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -24,7 +25,11 @@ function esCargoAltoNivel(cargo) {
 }
 
 function esFuenteConfiable(fuente) {
-  return FUENTES_CONFIABLES.includes(fuente);
+  return puntosConfiabilidad(fuente) > 0;
+}
+
+function puntosScoreFuente(fuente) {
+  return puntosConfiabilidad(fuente);
 }
 
 function matchNombre(nombreExtraido, nombreCliente) {
@@ -57,8 +62,8 @@ export function calcularScore(noticia, cliente, nombreExtraido, cargo, datosCont
   if (esCargoAltoNivel(cargo)) detalle.cargoAltoNivel = 3;
   else detalle.cargoLocal = 1;
 
-  // Fuente
-  if (esFuenteConfiable(noticia.fuente)) detalle.fuenteConfiable = 1;
+  // Fuente — usa catálogo autorizado real
+  if (esFuenteConfiable(noticia.fuente)) detalle.fuenteConfiable = puntosScoreFuente(noticia.fuente);
 
   // Reciente (menos de 30 días)
   if (diasDesde(noticia.fecha) <= 30) detalle.noticiaReciente = 1;

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { procesarNoticias } from '../utils/scoring';
+import { buscarFuentePorDominio, FUENTES_AUTORIZADAS } from '../data/fuentesAutorizadas';
 
 function nuevaNoticia() {
   return {
     id: `N-${Date.now()}`,
     titulo: '', fuente: '', fecha: new Date().toISOString().slice(0, 10),
-    tipo: 'TXT', confiabilidad: 'media', texto: '',
+    tipo: 'HTML', confiabilidad: 'media', texto: '', estado: 'manual',
   };
 }
 
@@ -64,16 +65,23 @@ export default function Noticias({ state, onChange }) {
       {mensaje && <div className="toast-exito">{mensaje}</div>}
 
       <div className="aviso-agente">
-        <strong>🤖 ¿Cómo funciona el agente?</strong> Al hacer clic en "Ejecutar Agente", el sistema cruza cada noticia del corpus con la base de clientes, calcula el score según las reglas explicables y genera candidatos PEP para revisión humana.
+        <strong>🤖 ¿Cómo funciona el agente?</strong> Al hacer clic en "Ejecutar Agente", el sistema cruza cada noticia del corpus con la base de clientes, calcula el score según las reglas explicables y genera candidatos PEP para revisión humana. Para ingerir noticias automáticamente desde las fuentes oficiales, ve a la pestaña <strong>🌐 Fuentes</strong>.
       </div>
 
       <div className="noticias-lista">
-        {noticias.map(n => (
+        {noticias.map(n => {
+          const fuenteAuth = buscarFuentePorDominio(n.fuente);
+          return (
           <div key={n.id} className="noticia-card">
             <div className="noticia-card-header" onClick={() => setExpandida(expandida === n.id ? null : n.id)}>
               <div className="noticia-card-left">
                 <span className={`tipo-badge ${n.tipo}`}>{n.tipo}</span>
                 <span className={`conf-badge ${n.confiabilidad}`}>{n.confiabilidad}</span>
+                {fuenteAuth && (
+                  <span className="fuente-autorizada-badge" title={fuenteAuth.justificacion}>
+                    ✅ {fuenteAuth.id}
+                  </span>
+                )}
                 <span className="noticia-titulo-preview">{n.titulo || <em>Sin título</em>}</span>
               </div>
               <div className="noticia-card-right">
@@ -85,6 +93,13 @@ export default function Noticias({ state, onChange }) {
             </div>
             {expandida === n.id && (
               <div className="noticia-card-body">
+                {fuenteAuth && (
+                  <div className="fuente-auth-info">
+                    <strong>📌 Fuente autorizada:</strong> {fuenteAuth.nombre} ({fuenteAuth.nivelConfiabilidad}) —&nbsp;
+                    <a href={fuenteAuth.url} target="_blank" rel="noopener noreferrer">{fuenteAuth.dominio}</a>
+                    <span className="fuente-auth-rol"> · {fuenteAuth.rol}</span>
+                  </div>
+                )}
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Título</label>
@@ -108,7 +123,18 @@ export default function Noticias({ state, onChange }) {
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Fuente (dominio)</label>
-                    <input className="form-input" value={n.fuente} onChange={e => actualizar(n.id, 'fuente', e.target.value)} placeholder="ej. diarioficticio-a.example" />
+                    <input
+                      className="form-input"
+                      value={n.fuente}
+                      onChange={e => actualizar(n.id, 'fuente', e.target.value)}
+                      placeholder="ej. dca.gob.gt"
+                      list={`fuentes-list-${n.id}`}
+                    />
+                    <datalist id={`fuentes-list-${n.id}`}>
+                      {FUENTES_AUTORIZADAS.map(f => (
+                        <option key={f.id} value={f.dominio}>{f.nombre}</option>
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group w180">
                     <label className="form-label">Fecha</label>
@@ -122,7 +148,8 @@ export default function Noticias({ state, onChange }) {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

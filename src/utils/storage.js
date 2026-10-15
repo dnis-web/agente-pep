@@ -1,6 +1,7 @@
 import { clientesIniciales, noticiasIniciales, candidatosIniciales } from '../data/inicial';
 
-const KEY = 'agente_pep_v1';
+// v2: candidatos ahora se generan dinámicamente; bandeja empieza vacía
+const KEY = 'agente_pep_v2';
 
 export function loadState() {
   try {
@@ -10,7 +11,7 @@ export function loadState() {
   return {
     clientes: clientesIniciales,
     noticias: noticiasIniciales,
-    candidatos: candidatosIniciales,
+    candidatos: candidatosIniciales, // []
     bitacora: [],
     analista: 'Ana (Analista de Cumplimiento)',
   };

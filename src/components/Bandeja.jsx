@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { colorPrioridad, colorDecision } from '../utils/scoring';
+import { colorPrioridad } from '../utils/scoring';
+import { buscarFuentePorDominio } from '../data/fuentesAutorizadas';
 
-const FILTROS = ['TODOS', 'Alta', 'Media', 'Baja', 'Pendientes'];
+const FILTROS = ['TODOS', 'Alta', 'Media', 'Baja'];
 
 export default function Bandeja({ state, onDecision }) {
   const { candidatos, clientes, noticias } = state;
@@ -11,7 +12,6 @@ export default function Bandeja({ state, onDecision }) {
 
   const candidatosFiltrados = candidatos.filter(c => {
     if (filtro === 'TODOS') return true;
-    if (filtro === 'Pendientes') return !c.decision;
     return c.prioridad === filtro;
   });
 
@@ -20,7 +20,6 @@ export default function Bandeja({ state, onDecision }) {
     Alta: candidatos.filter(c => c.prioridad === 'Alta').length,
     Media: candidatos.filter(c => c.prioridad === 'Media').length,
     Baja: candidatos.filter(c => c.prioridad === 'Baja').length,
-    Pendientes: candidatos.filter(c => !c.decision).length,
   };
 
   function handleDecision(candidatoId, decision) {
@@ -36,6 +35,7 @@ export default function Bandeja({ state, onDecision }) {
   const cand = seleccionado ? candidatos.find(c => c.id === seleccionado) : null;
   const cliente = cand ? clientes.find(c => c.id === cand.clienteId) : null;
   const noticia = cand ? noticias.find(n => n.id === cand.noticiaId) : null;
+  const fuenteAuth = cand ? buscarFuentePorDominio(cand.fuente) : null;
 
   return (
     <div className="bandeja-layout">
@@ -66,7 +66,6 @@ export default function Bandeja({ state, onDecision }) {
           {candidatosFiltrados.map(c => {
             const cl = clientes.find(x => x.id === c.clienteId);
             const cp = colorPrioridad(c.prioridad);
-            const cd = colorDecision(c.decision);
             return (
               <div
                 key={c.id}
@@ -87,11 +86,6 @@ export default function Bandeja({ state, onDecision }) {
                 </div>
                 <div className="candidato-card-bot">
                   <span className="candidato-cliente">👤 {cl?.nombre} ({c.clienteId})</span>
-                  {c.decision && (
-                    <span className="decision-chip" style={{ background: cd.bg, color: cd.text }}>
-                      {c.decision}
-                    </span>
-                  )}
                 </div>
               </div>
             );
@@ -128,7 +122,21 @@ export default function Bandeja({ state, onDecision }) {
             {/* Fuente y fragmento */}
             <div className="detalle-seccion">
               <div className="detalle-seccion-titulo">📄 Fuente y Fragmento</div>
-              <div className="detalle-fuente">{cand.fuente}</div>
+              <div className="detalle-fuente">
+                {fuenteAuth ? (
+                  <span>
+                    <span className="fuente-autorizada-badge" style={{ marginRight: '6px' }}>✅ {fuenteAuth.id}</span>
+                    <a href={fuenteAuth.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--secundario)', fontWeight: 600 }}>
+                      {cand.fuente}
+                    </a>
+                    <span style={{ fontSize: '11px', color: 'var(--suave)', marginLeft: '6px' }}>
+                      · {fuenteAuth.nivelConfiabilidad}
+                    </span>
+                  </span>
+                ) : (
+                  <span>{cand.fuente}</span>
+                )}
+              </div>
               {noticia && <div className="detalle-noticia-titulo">"{noticia.titulo}"</div>}
               <div className="detalle-fragmento">"{cand.fragmento}"</div>
             </div>
@@ -182,38 +190,27 @@ export default function Bandeja({ state, onDecision }) {
             {/* Decisión */}
             <div className="detalle-seccion">
               <div className="detalle-seccion-titulo">⚖️ Decisión Humana</div>
-              {cand.decision ? (
-                <div className="decision-registrada" style={{
-                  background: colorDecision(cand.decision).bg,
-                  color: colorDecision(cand.decision).text
-                }}>
-                  <div className="decision-registrada-titulo">{cand.decision}</div>
-                  <div className="decision-registrada-meta">{cand.analista} · {cand.fechaDecision ? new Date(cand.fechaDecision).toLocaleString('es-GT') : ''}</div>
-                  {cand.motivoDecision && <div className="decision-registrada-motivo">Motivo: {cand.motivoDecision}</div>}
+              <div className="decision-form">
+                <p className="decision-aviso">Nada se clasifica sin decisión humana. Al decidir, el candidato sale de la bandeja y queda registrado en la Bitácora.</p>
+                <textarea
+                  className="decision-motivo-input"
+                  placeholder="Escribe el motivo de tu decisión antes de seleccionar una acción..."
+                  value={motivo}
+                  onChange={e => setMotivo(e.target.value)}
+                  rows={3}
+                />
+                <div className="decision-botones">
+                  <button className="btn-aceptar" onClick={() => handleDecision(cand.id, 'Aceptado')}>
+                    ✓ Aceptar
+                  </button>
+                  <button className="btn-investigar" onClick={() => handleDecision(cand.id, 'Investigar')}>
+                    🔎 Investigar más
+                  </button>
+                  <button className="btn-rechazar" onClick={() => handleDecision(cand.id, 'Rechazado')}>
+                    ✕ Rechazar
+                  </button>
                 </div>
-              ) : (
-                <div className="decision-form">
-                  <p className="decision-aviso">Nada se clasifica sin decisión humana.</p>
-                  <textarea
-                    className="decision-motivo-input"
-                    placeholder="Escribe el motivo de tu decisión antes de seleccionar una acción..."
-                    value={motivo}
-                    onChange={e => setMotivo(e.target.value)}
-                    rows={3}
-                  />
-                  <div className="decision-botones">
-                    <button className="btn-aceptar" onClick={() => handleDecision(cand.id, 'Aceptado')}>
-                      ✓ Aceptar
-                    </button>
-                    <button className="btn-investigar" onClick={() => handleDecision(cand.id, 'Investigar')}>
-                      🔎 Investigar más
-                    </button>
-                    <button className="btn-rechazar" onClick={() => handleDecision(cand.id, 'Rechazado')}>
-                      ✕ Rechazar
-                    </button>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         )}
