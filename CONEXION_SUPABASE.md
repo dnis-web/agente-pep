@@ -6,12 +6,14 @@ La app guarda sus datos en Supabase cuando existe el archivo `.env.local`. Sin �
 
 1. Copiar `.env.example` como `.env.local` en la raíz del proyecto.
 2. Completar los dos valores con los datos de **Supabase → Project Settings → API**:
-   - `VITE_SUPABASE_URL`: Project URL
-   - `VITE_SUPABASE_ANON_KEY`: anon public key
+   - `VITE_SUPABASE_URL`: API URL, por ejemplo `https://abcdefgh.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY`: la **publishable key** (`sb_publishable_...`), o la antigua anon public key
 3. `npm install` y `npm run dev`.
 4. Iniciar sesión con la cuenta del equipo.
 
-`.env.local` no se sube a GitHub (lo excluye `*.local` en `.gitignore`). Nunca usar la clave `service_role` en la app.
+`.env.local` no se sube a GitHub (lo excluye `*.local` en `.gitignore`). Nunca usar la clave secreta (`sb_secret_...` o `service_role`) en la app: la app la rechaza.
+
+Si un valor está mal escrito, la app muestra en pantalla qué corregir. Después de editar `.env.local`, recarga la página; si no toma el cambio, detén la app (Ctrl + C) y vuelve a ejecutar `npm run dev`.
 
 ## Qué se guarda en la base
 

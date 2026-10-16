@@ -12,7 +12,7 @@
  * Si Supabase no está configurado, no hace nada y la app trabaja en modo local.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { supabase, supabaseConfigurado } from '../lib/supabase';
+import { supabase, supabaseConfigurado, errorConfiguracion } from '../lib/supabase';
 import {
   cargarTodo, guardarFilas, eliminarFilas, insertarCandidatos, buscarIdCandidato,
   registrarDecision as registrarDecisionBD, clienteHaciaBD, noticiaHaciaBD, claveCandidato,
@@ -262,6 +262,7 @@ export function useSincronizacion(state, setState) {
 
   return {
     configurado: supabaseConfigurado,
+    errorConfiguracion,
     conectado,
     requiereLogin: supabaseConfigurado && !verificandoSesion && !sesion,
     preparando: supabaseConfigurado && (verificandoSesion || (Boolean(sesion) && !cargado && !errorCarga)),

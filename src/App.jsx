@@ -208,7 +208,7 @@ export default function App() {
   const pendientes = state.candidatos.length;
 
   // ── Enlaces con Supabase: se guardan los cambios sin alterar la lógica anterior ──
-  if (sync.requiereLogin || sync.preparando || (sync.errorCarga && !sync.listo)) {
+  if (sync.errorConfiguracion || sync.requiereLogin || sync.preparando || (sync.errorCarga && !sync.listo)) {
     return <Login sync={sync} />;
   }
 

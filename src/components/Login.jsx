@@ -34,6 +34,22 @@ export default function Login({ sync }) {
     </div>
   );
 
+  // .env.local con datos inválidos
+  if (sync.errorConfiguracion) {
+    return (
+      <div className="login-fondo">
+        <div className="login-tarjeta">
+          {marca}
+          <div className="login-error">Revisa el archivo .env.local: {sync.errorConfiguracion}</div>
+          <p className="login-nota">
+            Después de corregirlo, guarda el archivo y recarga esta página. Si borras .env.local,
+            la app funciona en modo local, sin Supabase.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Sesión iniciada, pero la carga de datos falló
   if (sync.errorCarga) {
     return (
