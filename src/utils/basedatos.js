@@ -29,8 +29,34 @@ export function claveCandidato(c) {
   return `${c.noticiaId}|${c.clienteId || ''}|${(c.nombreExtraido || '').trim()}`;
 }
 
+// Mensajes claros para las reglas de la base de datos (nombre de la regla → explicación)
+const MENSAJES_REGLAS = {
+  bitacora_motivo_check: 'El motivo debe tener al menos 10 caracteres.',
+  candidatos_fragmento_check: 'El fragmento de evidencia debe tener al menos 10 caracteres.',
+  prioridad_segun_score: 'La prioridad no corresponde al score (7 o más: Alta; 4 a 6: Media; 3 o menos: Baja).',
+  score_igual_a_desglose: 'El score no coincide con la suma de su desglose.',
+  candidatos_noticia_id_fkey: 'La noticia del candidato no existe en la base.',
+  candidatos_cliente_id_fkey: 'El cliente del candidato no existe en la base.',
+  candidatos_evento_check: 'El evento no es válido (Nombramiento, Cambio de cargo, Remoción, Elección, Posible homónimo u Otro).',
+  candidatos_riesgo_homonimo_check: 'El riesgo de homónimo debe ser alto, medio o bajo.',
+  clientes_id_check: 'El ID del cliente debe tener el formato CL-0000.',
+  noticias_id_check: 'El ID de la noticia debe tener el formato N-000.',
+};
+
+/** Traduce un error de la base a un mensaje en español. */
+export function mensajeError(error) {
+  const texto = error?.message || String(error || '');
+  const regla = Object.keys(MENSAJES_REGLAS).find(r => texto.includes(r));
+  if (regla) return MENSAJES_REGLAS[regla];
+  if (/row-level security/i.test(texto)) return 'Tu usuario no tiene permiso para esta acción (revisa su perfil en la tabla perfiles).';
+  if (/duplicate key/i.test(texto)) return 'Ese registro ya existe en la base.';
+  if (/Failed to fetch|NetworkError|network/i.test(texto)) return 'No hay conexión con Supabase. Revisa tu internet o si el proyecto está pausado.';
+  if (/JWT|session/i.test(texto)) return 'La sesión expiró. Cierra sesión y vuelve a entrar.';
+  return texto;
+}
+
 function verificar({ data, error }, que) {
-  if (error) throw new Error(`${que}: ${error.message}`);
+  if (error) throw new Error(`${que}: ${mensajeError(error)}`);
   return data;
 }
 

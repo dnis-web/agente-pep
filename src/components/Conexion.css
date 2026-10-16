@@ -63,3 +63,7 @@
 @media (max-width: 640px) {
   .conexion-usuario { display: none; }
 }
+
+/* Los errores se muestran completos (en varias líneas si hace falta) */
+.conexion-estado.error { border-radius: 12px; max-width: min(560px, calc(100vw - 32px)); }
+.conexion-estado.error .conexion-texto { white-space: normal; }

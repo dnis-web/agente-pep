@@ -254,9 +254,21 @@ export function useSincronizacion(state, setState) {
         if (idBD) c.candidatosBD.set(clave, idBD);
       }
       if (!idBD) throw new Error('No se encontró el candidato en la base; la decisión no se guardó.');
-      const fila = await registrarDecisionBD(idBD, decision, motivo);
-      marcarEntrada({ _bdId: fila.id, candidatoId: idBD, analista: fila.analista_email, fecha: fila.fecha_hora });
-      setAviso({ tipo: 'ok', texto: `Decisión registrada en la bitácora (${idBD})` });
+      try {
+        const fila = await registrarDecisionBD(idBD, decision, motivo);
+        marcarEntrada({ _bdId: fila.id, candidatoId: idBD, analista: fila.analista_email, fecha: fila.fecha_hora });
+        setAviso({ tipo: 'ok', texto: `Decisión registrada en la bitácora (${idBD})` });
+      } catch (e) {
+        // La decisión no se guardó: se quita de la bitácora local y el candidato vuelve a la bandeja
+        setState(prev => ({
+          ...prev,
+          bitacora: prev.bitacora.filter(b => !(b.candidatoId === candidato.id && !b._bdId && !b._local)),
+          candidatos: prev.candidatos.some(x => x.id === candidato.id)
+            ? prev.candidatos
+            : [...prev.candidatos, candidato],
+        }));
+        setAviso({ tipo: 'error', texto: `La decisión no se guardó. ${e.message.replace(/^Registrar decisión: /, '')} El candidato volvió a la bandeja.` });
+      }
     });
   }, [conectado, cargado, encolar, guardarPendientes, setState]);
 
