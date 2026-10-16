@@ -229,9 +229,13 @@ export default function App() {
   }
 
   function restablecerConRecarga() {
-    handleRestablecer();
-    // Con Supabase, después de restablecer se vuelven a cargar los datos de la base
-    if (sync.conectado) sync.recargar();
+    if (!sync.conectado) return handleRestablecer();
+    // Con Supabase la base es compartida: se avisa que el borrado afecta a todo el equipo
+    if (!confirm('¿Restablecer todos los datos? Se borrarán los candidatos, las decisiones y la bitácora de la base de datos para TODO el equipo.')) return;
+    clearState();
+    setState(JSON.parse(JSON.stringify(ESTADO_INICIAL)));
+    setVista('bandeja');
+    sync.restablecer();
   }
 
   return (

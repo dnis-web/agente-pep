@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase, supabaseConfigurado, errorConfiguracion } from '../lib/supabase';
 import {
+  mensajeError,
   cargarTodo, guardarFilas, eliminarFilas, insertarCandidatos, buscarIdCandidato,
   registrarDecision as registrarDecisionBD, clienteHaciaBD, noticiaHaciaBD, claveCandidato,
 } from './basedatos';
@@ -272,6 +273,30 @@ export function useSincronizacion(state, setState) {
     });
   }, [conectado, cargado, encolar, guardarPendientes, setState]);
 
+  // ── Restablecer (modo desarrollo) ─────────────────────────────────────────
+  // Borra candidatos, bitácora y registro de cambios en la base con
+  // limpiar_pruebas() y vuelve a cargar. En modo final esa función no existe:
+  // no se borra nada y solo se recargan los datos.
+  const restablecer = useCallback(async () => {
+    if (!supabaseConfigurado || !supabase) return;
+    const c = ctx.current;
+    if (c.temporizador) { clearTimeout(c.temporizador); c.temporizador = null; }
+    c.pendientes = { clientes: new Set(), noticias: new Set() };
+    c.eliminados = { clientes: new Set(), noticias: new Set() };
+    let error = null;
+    await encolar(async () => {
+      ({ error } = await supabase.rpc('limpiar_pruebas'));
+    });
+    await recargar();
+    if (!error) {
+      setAviso({ tipo: 'ok', texto: 'Pruebas borradas: bandeja y bitácora vacías' });
+    } else if (/limpiar_pruebas|function|PGRST202/i.test(`${error.code} ${error.message}`)) {
+      setAviso({ tipo: 'aviso', texto: 'La base está en modo final: los candidatos y la bitácora no se pueden borrar. Solo se recargaron los datos.' });
+    } else {
+      setAviso({ tipo: 'error', texto: `No se pudo restablecer. ${mensajeError(error)}` });
+    }
+  }, [encolar, recargar]);
+
   return {
     configurado: supabaseConfigurado,
     errorConfiguracion,
@@ -286,6 +311,7 @@ export function useSincronizacion(state, setState) {
     iniciarSesion,
     cerrarSesion,
     recargar,
+    restablecer,
     marcarCambios,
     registrarDecision,
   };
