@@ -28,8 +28,8 @@ export default function Login({ sync }) {
     <div className="login-marca">
       <span className="login-marca-icono">🛡</span>
       <div>
-        <div className="login-titulo">Vigía PEP</div>
-        <div className="login-sub">Agente de Monitoreo · Datos Sintéticos</div>
+        <div className="login-titulo">Sistema PEP</div>
+        <div className="login-sub">Agente de Monitoreo</div>
       </div>
     </div>
   );
@@ -116,7 +116,7 @@ export default function Login({ sync }) {
           {enviando ? 'Entrando…' : 'Iniciar sesión'}
         </button>
         <p className="login-nota">
-          Los datos se guardan en la base de datos del equipo. Todos los datos son sintéticos.
+          Los datos se guardan en la base de datos del equipo.
         </p>
       </form>
     </div>
