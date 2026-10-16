@@ -9,6 +9,9 @@ import Noticias from './components/Noticias';
 import Bitacora from './components/Bitacora';
 import Metricas from './components/Metricas';
 import Fuentes from './components/Fuentes';
+import Login from './components/Login';
+import EstadoConexion from './components/EstadoConexion';
+import { useSincronizacion } from './utils/useSincronizacion';
 import './index.css';
 
 const ESTADO_INICIAL = {
@@ -24,6 +27,8 @@ export default function App() {
   const [vista, setVista] = useState('bandeja');
   const [toast, setToast] = useState(false);
   const toastTimer = useRef(null);
+  // Conexión con Supabase (si no hay .env.local, la app sigue en modo local)
+  const sync = useSincronizacion(state, setState);
 
   useEffect(() => {
     saveState(state);
@@ -202,23 +207,51 @@ export default function App() {
   // Todos los candidatos en bandeja son pendientes (se eliminan al decidir)
   const pendientes = state.candidatos.length;
 
+  // ── Enlaces con Supabase: se guardan los cambios sin alterar la lógica anterior ──
+  if (sync.requiereLogin || sync.preparando || (sync.errorCarga && !sync.listo)) {
+    return <Login sync={sync} />;
+  }
+
+  function decisionConGuardado(candidatoId, decision, motivo) {
+    const candidato = state.candidatos.find(c => c.id === candidatoId);
+    handleDecision(candidatoId, decision, motivo);
+    sync.registrarDecision(candidato, decision, motivo);
+  }
+
+  function clientesConGuardado(nuevoState) {
+    sync.marcarCambios('clientes', state.clientes, nuevoState.clientes);
+    handleClientesChange(nuevoState);
+  }
+
+  function noticiasConGuardado(nuevoState) {
+    sync.marcarCambios('noticias', state.noticias, nuevoState.noticias);
+    setState(nuevoState);
+  }
+
+  function restablecerConRecarga() {
+    handleRestablecer();
+    // Con Supabase, después de restablecer se vuelven a cargar los datos de la base
+    if (sync.conectado) sync.recargar();
+  }
+
   return (
     <>
       <Navbar
         vistaActiva={vista}
         onCambiarVista={setVista}
         pendientes={pendientes}
-        onRestablecer={handleRestablecer}
+        onRestablecer={restablecerConRecarga}
       />
       <div className="app-main">
-        {vista === 'bandeja'  && <Bandeja  state={state} onDecision={handleDecision} />}
-        {vista === 'clientes' && <Clientes state={state} onChange={handleClientesChange} />}
-        {vista === 'noticias' && <Noticias state={state} onChange={setState} />}
-        {vista === 'fuentes'  && <Fuentes  state={state} onChange={setState} />}
+        {vista === 'bandeja'  && <Bandeja  state={state} onDecision={decisionConGuardado} />}
+        {vista === 'clientes' && <Clientes state={state} onChange={clientesConGuardado} />}
+        {vista === 'noticias' && <Noticias state={state} onChange={noticiasConGuardado} />}
+        {vista === 'fuentes'  && <Fuentes  state={state} onChange={noticiasConGuardado} />}
         {vista === 'bitacora' && <Bitacora state={state} />}
         {vista === 'metricas' && <Metricas state={state} />}
       </div>
       {toast && <div className="autosave-toast">✓ Guardado</div>}
+      <EstadoConexion sync={sync} />
     </>
   );
 }
