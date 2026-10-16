@@ -7,15 +7,15 @@ import './Conexion.css';
 export default function EstadoConexion({ sync }) {
   if (!sync.conectado) return null;
   const tipo = sync.aviso?.tipo || 'ok';
-  const mensaje = sync.aviso?.texto || 'Conectado';
+  // Solo se muestran avisos y errores; los mensajes de éxito no ocupan espacio.
+  const mensaje = tipo === 'ok' ? '' : sync.aviso?.texto || '';
 
   return (
-    <div className={`conexion-estado ${tipo}`} role="status" title={mensaje}>
+    <div className={`conexion-estado ${tipo}`} role="status" title={mensaje || sync.aviso?.texto || 'Conectado'}>
       <span className="conexion-punto" />
       <span className="conexion-texto">
-        <strong>Supabase</strong>
-        <span className="conexion-usuario"> · {sync.usuario}</span>
-        <span className="conexion-mensaje"> · {mensaje}</span>
+        <span className="conexion-usuario">{sync.usuario}</span>
+        {mensaje && <span className="conexion-mensaje"> · {mensaje}</span>}
       </span>
       <button className="conexion-boton" onClick={sync.recargar} disabled={sync.cargando}>
         {sync.cargando ? '…' : '↻ Recargar'}

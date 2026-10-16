@@ -110,7 +110,7 @@ export function useSincronizacion(state, setState) {
         };
       });
       setCargado(true);
-      setAviso({ tipo: 'ok', texto: 'Datos cargados desde Supabase' });
+      setAviso({ tipo: 'ok', texto: 'Datos cargados' });
     } catch (e) {
       setErrorCarga(e.message);
       setAviso({ tipo: 'error', texto: e.message });
@@ -192,7 +192,7 @@ export function useSincronizacion(state, setState) {
     const guardados = filasClientes.length + filasNoticias.length + borrarClientes.length +
       borrarNoticias.length + insertados.length;
     if (avisos.length) setAviso({ tipo: 'aviso', texto: avisos[0] });
-    else if (guardados) setAviso({ tipo: 'ok', texto: 'Cambios guardados en Supabase' });
+    else if (guardados) setAviso({ tipo: 'ok', texto: 'Cambios guardados' });
   }, []);
 
   const programarGuardado = useCallback(() => {

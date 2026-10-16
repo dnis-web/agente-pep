@@ -77,7 +77,7 @@ export default function Login({ sync }) {
       <div className="login-fondo">
         <div className="login-tarjeta">
           {marca}
-          <p className="login-sub">Cargando datos desde Supabase…</p>
+          <p className="login-sub">Cargando datos…</p>
         </div>
       </div>
     );
@@ -116,7 +116,7 @@ export default function Login({ sync }) {
           {enviando ? 'Entrando…' : 'Iniciar sesión'}
         </button>
         <p className="login-nota">
-          Los datos se guardan en Supabase y los comparte todo el equipo. Todos los datos son sintéticos.
+          Los datos se guardan en la base de datos del equipo. Todos los datos son sintéticos.
         </p>
       </form>
     </div>
