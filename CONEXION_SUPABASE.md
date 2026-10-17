@@ -20,19 +20,20 @@ Si un valor está mal escrito, la app muestra en pantalla qué corregir. Despué
 | En la app | En Supabase |
 |---|---|
 | Clientes: agregar, editar, eliminar | Tabla `clientes` (1.2 s después de dejar de escribir) |
-| Corpus: agregar, editar, eliminar noticias de fuentes del catálogo de la base | Tabla `noticias` |
+| Corpus: agregar, editar, eliminar noticias de fuentes del catálogo de la base | Tabla `noticias` (`origen = sintetico`) |
+| Fuentes: noticias que trae "Consultar fuentes" | Tabla `noticias` (`origen = publica_autorizada`, con URL, fecha y texto completo) |
 | Candidatos generados por "Ejecutar Agente" o al editar clientes | Tabla `candidatos` (sin duplicar) |
 | Aceptar, Investigar o Rechazar en la bandeja | Tabla `bitacora`, con el correo del usuario |
 
 ## Qué queda solo en la computadora
 
-- Noticias de fuentes que no están en la tabla `fuentes` de la base (por ejemplo, las del botón "Consultar fuentes"), y los candidatos y decisiones que salgan de ellas.
+- Noticias de fuentes que no están en la tabla `fuentes` de la base, y los candidatos y decisiones que salgan de ellas. Para que "Consultar fuentes" guarde en la base hay que ejecutar antes `06_fuentes_reales.sql`.
 - Clientes con ID que no cumple el formato `CL-0000` o sin año de nacimiento: aparece un aviso.
 
 ## Comportamiento
 
 - **Bandeja:** muestra los candidatos en estado Pendiente o En investigación. Un candidato marcado "Investigar" vuelve a aparecer al recargar, porque en la base sigue abierto.
-- **Restablecer:** limpia la vista local y vuelve a cargar los datos de la base. No borra nada en Supabase.
+- **Restablecer:** en modo desarrollo borra en Supabase los candidatos, la bitácora, las noticias consultadas y el registro de cambios (función `limpiar_pruebas()`), y vuelve a cargar. Afecta a todo el equipo. En modo final no borra nada: solo recarga.
 - **Indicador (abajo a la izquierda):** usuario, último mensaje (verde: guardado; naranja: aviso; rojo: error), recargar y salir.
 - **Varias personas a la vez:** cada una ve los cambios de las demás al presionar "↻ Recargar".
 

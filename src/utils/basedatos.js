@@ -40,7 +40,7 @@ const MENSAJES_REGLAS = {
   candidatos_evento_check: 'El evento no es válido (Nombramiento, Cambio de cargo, Remoción, Elección, Posible homónimo u Otro).',
   candidatos_riesgo_homonimo_check: 'El riesgo de homónimo debe ser alto, medio o bajo.',
   clientes_id_check: 'El ID del cliente debe tener el formato CL-0000.',
-  noticias_id_check: 'El ID de la noticia debe tener el formato N-000.',
+  noticias_id_check: 'El ID de la noticia no tiene un formato válido (N-000 o el que genera Consultar fuentes).',
 };
 
 /** Traduce un error de la base a un mensaje en español. */
@@ -90,10 +90,12 @@ export function noticiaDesdeBD(r) {
     fuenteNombre: f.nombre || '',
     url: r.url,
     fecha: r.fecha_publicacion,
-    tipo: 'TXT',
+    tipo: r.origen === 'publica_autorizada' ? 'HTML' : 'TXT',
     confiabilidad: (f.confiabilidad || 'media').toLowerCase(),
     texto: r.texto,
-    estado: 'sintético',
+    ...(r.texto_completo ? { textoCompleto: r.texto_completo } : {}),
+    // 'ok' = consultada en una fuente real (como la deja fetcher.js); 'sintético' = corpus de prueba
+    estado: r.origen === 'publica_autorizada' ? 'ok' : 'sintético',
     _bd: true,
   };
 }
@@ -179,11 +181,16 @@ export function clienteHaciaBD(c) {
   };
 }
 
+// N-001 (corpus) o N-<marca de tiempo>-F-01[-n] (noticias consultadas en las fuentes)
+const ID_NOTICIA = /^N-[0-9]{3,}(-F-[0-9]{2}(-[0-9]+)?)?$/;
+
 export function noticiaHaciaBD(n, fuentesPorDominio) {
   const fuente = fuentesPorDominio[(n.fuente || '').trim().toLowerCase()];
   if (!fuente) return { local: true }; // fuente fuera del catálogo de la base: queda solo en la app
-  if (!/^N-[0-9]{3,}$/.test(n.id || '')) return { local: true };
+  if (!ID_NOTICIA.test(n.id || '')) return { local: true };
   if (!(n.texto || '').trim() || !n.fecha) return { error: null }; // incompleta: se guardará luego
+  // Las noticias que trae "Consultar fuentes" llegan con estado 'ok' y su ID termina en -F-NN
+  const consultada = n.estado === 'ok' || /-F-[0-9]{2}(-[0-9]+)?$/.test(n.id);
   return {
     fila: {
       id: n.id,
@@ -192,7 +199,8 @@ export function noticiaHaciaBD(n, fuentesPorDominio) {
       fecha_publicacion: n.fecha,
       titulo: n.titulo || '',
       texto: n.texto,
-      origen: 'sintetico',
+      texto_completo: n.textoCompleto || null,
+      origen: consultada ? 'publica_autorizada' : 'sintetico',
     },
   };
 }
