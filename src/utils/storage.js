@@ -6,13 +6,15 @@ const KEY = 'agente_pep_v2';
 export function loadState() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw);
+    // busquedas: [] garantiza que datos guardados antes de este cambio también tengan el campo
+    if (raw) return { busquedas: [], ...JSON.parse(raw) };
   } catch {}
   return {
     clientes: clientesIniciales,
     noticias: noticiasIniciales,
     candidatos: candidatosIniciales, // []
     bitacora: [],
+    busquedas: [], // historial de búsquedas (manuales y automáticas)
     analista: 'Ana (Analista de Cumplimiento)',
   };
 }

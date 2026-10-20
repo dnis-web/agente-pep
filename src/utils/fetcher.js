@@ -8,7 +8,7 @@
  * Solo datos públicos. Sin datos reales de clientes. Uso académico.
  */
 
-import { FUENTES_AUTORIZADAS } from '../data/fuentesAutorizadas';
+import { FUENTES_AUTORIZADAS } from '../data/fuentesAutorizadas.js';
 
 // Timeout por petición (ms)
 const TIMEOUT_MS = 15000;
@@ -160,7 +160,7 @@ function parsearRSS(xml) {
  * El middleware corre en Node.js, añade User-Agent real y no tiene restricciones CORS.
  */
 async function fetchLocal(url, signal) {
-  const endpoint = `/api/proxy?url=${encodeURIComponent(url)}`;
+  const endpoint = typeof window === 'undefined' ? url : `/api/proxy?url=${encodeURIComponent(url)}`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -168,11 +168,13 @@ async function fetchLocal(url, signal) {
   signal?.addEventListener('abort', () => controller.abort());
 
   try {
-    const resp = await fetch(endpoint, { signal: controller.signal });
+    const resp = await fetch(endpoint, { signal: controller.signal, headers: typeof window === 'undefined' ? { 'User-Agent': 'AgentePEP/1.0 (consulta de información pública)', 'Accept': 'text/html,application/xml;q=0.9,*/*;q=0.8' } : {} });
     clearTimeout(timer);
 
     if (!resp.ok) {
-      return { contenido: null, error: `HTTP ${resp.status} desde el proxy local` };
+      // Se incluye el detalle que devuelve el proxy (p. ej. causa del fallo SSL, timeout, 403…)
+      const detalle = (await resp.text().catch(() => '')).substring(0, 150);
+      return { contenido: null, error: `HTTP ${resp.status}: ${detalle}` };
     }
 
     const contenido = await resp.text();
@@ -184,7 +186,11 @@ async function fetchLocal(url, signal) {
 
   } catch (e) {
     clearTimeout(timer);
-    if (e.name === 'AbortError') throw e;
+    // Si el usuario canceló, se propaga; si fue el timeout propio, se reporta como error de la fuente
+    if (e.name === 'AbortError' && signal?.aborted) throw e;
+    if (e.name === 'AbortError') {
+      return { contenido: null, error: 'Timeout: la fuente no respondió a tiempo' };
+    }
     return { contenido: null, error: e.message };
   }
 }
@@ -245,7 +251,7 @@ export async function fetchNoticiasFromFuente(fuente, signal) {
       textoCompleto: (item.titulo + ' ' + item.texto).substring(0, 3000),
       url: item.link || url,
       fecha: item.fecha
-        ? (new Date(item.fecha).toISOString().slice(0, 10) || fechaHoy)
+        ? (Number.isFinite(Date.parse(item.fecha)) ? new Date(item.fecha).toISOString().slice(0, 10) : fechaHoy)
         : fechaHoy,
       estado: 'ok',
       errorMsg: null,
@@ -309,7 +315,8 @@ export async function fetchTodasLasFuentes(fuenteIds, onProgreso, signal) {
         noticias.push(...resultados);
         onProgreso?.(fuente.id, resultados[0]?.estado || 'ok');
       } catch (e) {
-        if (e.name === 'AbortError') return;
+        if (e.name === 'AbortError' && signal?.aborted) return;
+        noticias.push({ id: `ERR-${Date.now()}-${fuente.id}`, fuenteId: fuente.id, fuenteNombre: fuente.nombre, estado: 'error', errorMsg: e.message });
         onProgreso?.(fuente.id, 'error');
       }
     }));

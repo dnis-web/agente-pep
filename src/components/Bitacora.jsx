@@ -2,7 +2,7 @@ import { exportarBitacoraPDF } from '../utils/pdfExport';
 import { colorDecision } from '../utils/scoring';
 
 export default function Bitacora({ state }) {
-  const { bitacora, candidatos, clientes } = state;
+  const { bitacora, clientes } = state;
 
   function handleExportar() {
     exportarBitacoraPDF(state);
@@ -26,8 +26,9 @@ export default function Bitacora({ state }) {
         <div className="bitacora-lista">
           {[...bitacora].reverse().map((entrada, i) => {
             const cd = colorDecision(entrada.decision);
-            const cand = candidatos.find(c => c.id === entrada.candidatoId);
-            const cliente = clientes.find(c => c.id === cand?.clienteId);
+            // El candidato ya no está en la bandeja (se elimina al decidir),
+            // por eso el cliente y el score se leen de la propia entrada.
+            const cliente = clientes.find(c => c.id === entrada.clienteId);
             return (
               <div key={i} className="bitacora-entrada">
                 <div className="bitacora-entrada-izq">
@@ -53,9 +54,9 @@ export default function Bitacora({ state }) {
                       Cliente: {cliente.id} · {cliente.nombre}
                     </div>
                   )}
-                  {cand && (
+                  {entrada.score != null && (
                     <div className="bitacora-score">
-                      Score {cand.score} · {cand.prioridad} · {cand.cargoExtraido}
+                      Score {entrada.score} · {entrada.prioridad} · {entrada.cargoExtraido}
                     </div>
                   )}
                 </div>

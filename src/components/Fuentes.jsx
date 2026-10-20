@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { FUENTES_AUTORIZADAS } from '../data/fuentesAutorizadas';
-import { fetchTodasLasFuentes } from '../utils/fetcher';
+import { ejecutarBusqueda, fusionarResultado } from '../utils/busqueda';
 
 const ROLES_COLOR = {
   'Normativa Base Cargos PEP': { bg: '#eff6ff', text: '#1d4ed8', border: '#93c5fd' },
@@ -15,7 +15,7 @@ const NIVEL_COLOR = {
   'Verificada Nivel 2':   { bg: '#b45309', text: '#fff' },
 };
 
-export default function Fuentes({ state, onChange }) {
+export default function Fuentes({ state, onChange, estadoFuentes = {} }) {
   const [seleccionadas, setSeleccionadas] = useState(new Set());
   const [progreso, setProgreso] = useState({}); // { fuenteId: 'cargando'|'ok'|'error'|'sin_menciones' }
   const [cargando, setCargando] = useState(false);
@@ -23,9 +23,10 @@ export default function Fuentes({ state, onChange }) {
   const [filtroRol, setFiltroRol] = useState('TODOS');
   const abortRef = useRef(null);
 
-  const roles = ['TODOS', ...new Set(FUENTES_AUTORIZADAS.map(f => f.rol))];
+  const fuentesActivas = FUENTES_AUTORIZADAS.filter(f => estadoFuentes[f.id]?.activa !== false);
+  const roles = ['TODOS', ...new Set(fuentesActivas.map(f => f.rol))];
 
-  const fuentesFiltradas = FUENTES_AUTORIZADAS.filter(f =>
+  const fuentesFiltradas = fuentesActivas.filter(f =>
     filtroRol === 'TODOS' || f.rol === filtroRol
   );
 
@@ -58,40 +59,33 @@ export default function Fuentes({ state, onChange }) {
     abortRef.current = new AbortController();
 
     try {
-      const nuevasNoticias = await fetchTodasLasFuentes(
-        [...seleccionadas],
-        (fuenteId, estado, proxyUsado) => {
-          setProgreso(prev => ({
-            ...prev,
-            [fuenteId]: estado,
-            [`${fuenteId}_proxy`]: proxyUsado || null,
-          }));
-        },
-        abortRef.current.signal
-      );
-
-      // Filtrar solo las noticias con contenido relevante (estado 'ok')
-      const conContenido = nuevasNoticias.filter(n => n.estado === 'ok');
-      const sinContenido = nuevasNoticias.filter(n => n.estado !== 'ok');
-
-      // Evitar duplicar noticias ya cargadas por URL
-      const urlsExistentes = new Set(
-        (state.noticias || []).map(n => n.url).filter(Boolean)
-      );
-      const noticiasSinDuplicar = conContenido.filter(
-        n => !n.url || !urlsExistentes.has(n.url)
-      );
-
-      onChange({
-        ...state,
-        noticias: [...(state.noticias || []), ...noticiasSinDuplicar],
+      const resultado = await ejecutarBusqueda({
+        tipo: 'manual',
+        fuenteIds: [...seleccionadas],
+        onProgreso: (fuenteId, estado) =>
+          setProgreso(prev => ({ ...prev, [fuenteId]: estado })),
+        signal: abortRef.current.signal,
       });
 
+      if (!resultado) {
+        alert('Ya hay una búsqueda en curso. Intenta de nuevo en unos minutos.');
+        return;
+      }
+      if (abortRef.current.signal.aborted) return; // cancelada: no se registra
+
+      // Agrega las noticias nuevas y registra la búsqueda en el historial
+      onChange(prev => fusionarResultado(prev, resultado));
+      // La bitácora del servidor persiste aunque se cierre el navegador.
+      fetch('/api/pep/manual', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(resultado) })
+        .then(res => { if (!res.ok) console.error('No se guardó la bitácora del servidor'); })
+        .catch(err => console.error('No se guardó la bitácora del servidor:', err));
+
+      const r = resultado.registro;
       setResumen({
-        total: nuevasNoticias.length,
-        agregadas: noticiasSinDuplicar.length,
-        sinMenciones: sinContenido.filter(n => n.estado === 'sin_menciones').length,
-        errores: sinContenido.filter(n => n.estado === 'error').length,
+        total: r.fuentesConsultadas,
+        encontradas: r.noticiasEncontradas,
+        sinMenciones: r.sinMenciones,
+        errores: r.errores,
       });
     } catch (e) {
       if (e.name !== 'AbortError') {
@@ -124,7 +118,8 @@ export default function Fuentes({ state, onChange }) {
         <div>
           <h2 className="page-title">Catálogo de Fuentes Autorizadas</h2>
           <p className="page-sub">
-            {FUENTES_AUTORIZADAS.length} fuentes oficiales del catálogo — Selecciona y consulta para ingerir noticias automáticamente.
+            {fuentesActivas.length} fuentes activas de {FUENTES_AUTORIZADAS.length} del catálogo — Selecciona y consulta para ingerir noticias automáticamente.
+            La búsqueda automática se ejecuta a las 8:00 p. m. de Guatemala mientras el servidor local esté encendido.
           </p>
         </div>
         <div className="vista-header-acciones">
@@ -144,7 +139,7 @@ export default function Fuentes({ state, onChange }) {
 
       {/* Aviso académico */}
       <div className="aviso-agente" style={{ marginBottom: '1rem' }}>
-        <strong>🔒 Uso académico:</strong> Solo se consultan fuentes del catálogo autorizado mediante un proxy CORS público.
+        <strong>🔒 Uso académico:</strong> Solo se consultan fuentes del catálogo autorizado mediante el proxy local de la aplicación.
         No se envían datos de clientes ni información sensible. El contenido obtenido es texto público de páginas de noticias.
         Solo se agregan al corpus las noticias que contienen menciones de cargos PEP.
       </div>
@@ -152,7 +147,7 @@ export default function Fuentes({ state, onChange }) {
       {/* Resumen de resultado */}
       {resumen && !resumen.cancelado && !resumen.error && (
         <div className="toast-exito" style={{ marginBottom: '1rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-          <span>✅ <strong>{resumen.agregadas}</strong> noticias con menciones PEP agregadas al corpus</span>
+          <span>✅ <strong>{resumen.encontradas}</strong> noticias con menciones PEP encontradas</span>
           <span>🔵 <strong>{resumen.sinMenciones}</strong> fuentes sin menciones PEP</span>
           <span>❌ <strong>{resumen.errores}</strong> fuentes con error de acceso</span>
         </div>
@@ -242,10 +237,10 @@ export default function Fuentes({ state, onChange }) {
               {(cargando || estado) && seleccionada && (
                 <div className={`fuente-progress-bar ${estado || 'pendiente'}`}>
                   {!estado && <span>En cola…</span>}
-                  {estado === 'cargando' && <span>⏳ Consultando (intentando proxies)…</span>}
-                  {estado === 'ok' && <span>✅ Noticias PEP encontradas · vía {progreso[`${fuente.id}_proxy`] || 'proxy'}</span>}
+                  {estado === 'cargando' && <span>⏳ Consultando…</span>}
+                  {estado === 'ok' && <span>✅ Noticias PEP encontradas</span>}
                   {estado === 'sin_menciones' && <span>🔵 Accesible, sin menciones PEP ahora</span>}
-                  {estado === 'error' && <span>❌ No accesible con ningún proxy</span>}
+                  {estado === 'error' && <span>❌ No accesible (ver causa en Bitácora → Historial de búsquedas)</span>}
                 </div>
               )}
             </div>

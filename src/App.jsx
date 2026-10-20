@@ -2,16 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { loadState, saveState, clearState } from './utils/storage';
 import { clientesIniciales, noticiasIniciales, candidatosIniciales } from './data/inicial';
 import { calcularScore } from './utils/scoring';
+import { ejecutarBusqueda, fusionarResultado, todasLasFuentesIds } from './utils/busqueda';
+
 import Navbar from './components/Navbar';
+import Dashboard from './components/Dashboard';
 import Bandeja from './components/Bandeja';
 import Clientes from './components/Clientes';
 import Noticias from './components/Noticias';
 import Bitacora from './components/Bitacora';
+import BitacoraBusquedas from './components/BitacoraBusquedas';
 import Metricas from './components/Metricas';
 import Fuentes from './components/Fuentes';
-import Login from './components/Login';
-import EstadoConexion from './components/EstadoConexion';
-import { useSincronizacion } from './utils/useSincronizacion';
 import './index.css';
 
 const ESTADO_INICIAL = {
@@ -19,16 +20,16 @@ const ESTADO_INICIAL = {
   noticias: noticiasIniciales,
   candidatos: candidatosIniciales,
   bitacora: [],
+  busquedas: [],
   analista: 'Ana (Analista de Cumplimiento)',
 };
 
 export default function App() {
   const [state, setState] = useState(() => loadState());
-  const [vista, setVista] = useState('bandeja');
+  const [vista, setVista] = useState('dashboard');
+  const [estadoFuentes, setEstadoFuentes] = useState({});
   const [toast, setToast] = useState(false);
   const toastTimer = useRef(null);
-  // Conexión con Supabase (si no hay .env.local, la app sigue en modo local)
-  const sync = useSincronizacion(state, setState);
 
   useEffect(() => {
     saveState(state);
@@ -37,12 +38,45 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(false), 1600);
   }, [state]);
 
+  // El programador vive en Node/Vite, no en el navegador.
+  // El navegador importa las ejecuciones persistidas al abrirse y periódicamente.
+  useEffect(() => {
+    let activo = true;
+    const sincronizar = async () => {
+      try {
+        const res = await fetch('/api/pep/status');
+        if (!res.ok) return;
+        const db = await res.json();
+        if (!activo) return;
+        setEstadoFuentes(db.fuentes || {});
+        setState(prev => {
+          let next = prev;
+          const ids = new Set((prev.busquedas || []).map(b => b.id));
+          for (const item of (db.pendientes || [])) {
+            if (!ids.has(item.registro.id)) {
+              next = fusionarResultado(next, item, { generarCandidatos: true });
+              ids.add(item.registro.id);
+            }
+          }
+          const registros = [...(db.busquedas || []), ...(next.busquedas || [])];
+          const vistos = new Set();
+          const unicos = registros.filter(r => { if (vistos.has(r.id)) return false; vistos.add(r.id); return true; });
+          if (next === prev && unicos.length === (prev.busquedas || []).length) return prev;
+          return { ...next, busquedas: unicos.slice(0, 2000) };
+        });
+      } catch (e) { console.warn('No se pudo sincronizar bitácora:', e.message); }
+    };
+    void sincronizar();
+    const timer = setInterval(sincronizar, 30000);
+    return () => { activo = false; clearInterval(timer); };
+  }, []);
+
   function handleRestablecer() {
     if (!confirm('¿Restablecer todos los datos originales? Se perderán los cambios, decisiones y bitácora actuales.')) return;
     clearState();
     // Deep copy para evitar mutaciones del objeto original
     setState(JSON.parse(JSON.stringify(ESTADO_INICIAL)));
-    setVista('bandeja');
+    setVista('dashboard');
   }
 
   function handleDecision(candidatoId, decision, motivo) {
@@ -51,6 +85,7 @@ export default function App() {
 
     const nuevaEntrada = {
       candidatoId,
+      noticiaId: candidato?.noticiaId || '',
       candidatoNombre: candidato?.nombreExtraido || candidatoId,
       cargoExtraido: candidato?.cargoExtraido || '',
       clienteId: candidato?.clienteId || '',
@@ -207,55 +242,29 @@ export default function App() {
   // Todos los candidatos en bandeja son pendientes (se eliminan al decidir)
   const pendientes = state.candidatos.length;
 
-  // ── Enlaces con Supabase: se guardan los cambios sin alterar la lógica anterior ──
-  if (sync.errorConfiguracion || sync.requiereLogin || sync.preparando || (sync.errorCarga && !sync.listo)) {
-    return <Login sync={sync} />;
-  }
-
-  function decisionConGuardado(candidatoId, decision, motivo) {
-    const candidato = state.candidatos.find(c => c.id === candidatoId);
-    handleDecision(candidatoId, decision, motivo);
-    sync.registrarDecision(candidato, decision, motivo);
-  }
-
-  function clientesConGuardado(nuevoState) {
-    sync.marcarCambios('clientes', state.clientes, nuevoState.clientes);
-    handleClientesChange(nuevoState);
-  }
-
-  function noticiasConGuardado(nuevoState) {
-    sync.marcarCambios('noticias', state.noticias, nuevoState.noticias);
-    setState(nuevoState);
-  }
-
-  function restablecerConRecarga() {
-    if (!sync.conectado) return handleRestablecer();
-    // Con Supabase la base es compartida: se avisa que el borrado afecta a todo el equipo
-    if (!confirm('¿Restablecer todos los datos? Se borrarán los candidatos, las decisiones y la bitácora de la base de datos para TODO el equipo.')) return;
-    clearState();
-    setState(JSON.parse(JSON.stringify(ESTADO_INICIAL)));
-    setVista('bandeja');
-    sync.restablecer();
-  }
-
   return (
     <>
       <Navbar
         vistaActiva={vista}
         onCambiarVista={setVista}
         pendientes={pendientes}
-        onRestablecer={restablecerConRecarga}
+        onRestablecer={handleRestablecer}
       />
       <div className="app-main">
-        {vista === 'bandeja'  && <Bandeja  state={state} onDecision={decisionConGuardado} />}
-        {vista === 'clientes' && <Clientes state={state} onChange={clientesConGuardado} />}
-        {vista === 'noticias' && <Noticias state={state} onChange={noticiasConGuardado} />}
-        {vista === 'fuentes'  && <Fuentes  state={state} onChange={noticiasConGuardado} />}
-        {vista === 'bitacora' && <Bitacora state={state} />}
+        {vista === 'dashboard' && <Dashboard state={state} estadoFuentes={estadoFuentes} onCambiarVista={setVista} />}
+        {vista === 'bandeja'  && <Bandeja  state={state} onDecision={handleDecision} />}
+        {vista === 'clientes' && <Clientes state={state} onChange={handleClientesChange} />}
+        {vista === 'noticias' && <Noticias state={state} onChange={setState} />}
+        {vista === 'fuentes'  && <Fuentes  state={state} onChange={setState} estadoFuentes={estadoFuentes} />}
+        {vista === 'bitacora' && (
+          <>
+            <Bitacora state={state} />
+            <BitacoraBusquedas busquedas={state.busquedas || []} />
+          </>
+        )}
         {vista === 'metricas' && <Metricas state={state} />}
       </div>
       {toast && <div className="autosave-toast">✓ Guardado</div>}
-      <EstadoConexion sync={sync} />
     </>
   );
 }

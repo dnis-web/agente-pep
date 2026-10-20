@@ -1,5 +1,6 @@
 export default function Navbar({ vistaActiva, onCambiarVista, pendientes, onRestablecer }) {
   const vistas = [
+    { key: 'dashboard', label: '◫ Inicio', badge: null },
     { key: 'bandeja',   label: '📥 Bandeja',        badge: pendientes || null },
     { key: 'clientes',  label: '👥 Clientes',        badge: null },
     { key: 'noticias',  label: '📰 Corpus',          badge: null },

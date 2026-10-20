@@ -37,8 +37,15 @@ export default function Noticias({ state, onChange }) {
       const nuevos = procesarNoticias(state.noticias, clientes);
       // Conservar decisiones ya tomadas
       const existentes = state.candidatos.filter(c => c.decision);
+
+      // Pares cliente+noticia que el analista ya resolvió (están en la bitácora)
+      const decididos = new Set(
+        (state.bitacora || []).filter(b => b.noticiaId).map(b => `${b.clienteId}|${b.noticiaId}`)
+      );
+
       const sinDuplicar = nuevos.filter(n =>
-        !existentes.some(e => e.noticiaId === n.noticiaId && e.clienteId === n.clienteId)
+        !existentes.some(e => e.noticiaId === n.noticiaId && e.clienteId === n.clienteId) &&
+        !decididos.has(`${n.clienteId}|${n.noticiaId}`)
       );
       onChange({ ...state, candidatos: [...existentes, ...sinDuplicar] });
       setProcesando(false);
