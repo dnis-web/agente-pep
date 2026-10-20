@@ -13,6 +13,9 @@ import Bitacora from './components/Bitacora';
 import BitacoraBusquedas from './components/BitacoraBusquedas';
 import Metricas from './components/Metricas';
 import Fuentes from './components/Fuentes';
+import Login from './components/Login';
+import EstadoConexion from './components/EstadoConexion';
+import { useSincronizacion } from './utils/useSincronizacion';
 import './index.css';
 
 const ESTADO_INICIAL = {
@@ -30,6 +33,17 @@ export default function App() {
   const [estadoFuentes, setEstadoFuentes] = useState({});
   const [toast, setToast] = useState(false);
   const toastTimer = useRef(null);
+  // Conexión con Supabase (si no hay .env.local, la app sigue en modo local)
+  const sync = useSincronizacion(state, setState);
+  const syncRef = useRef(sync);
+  useEffect(() => { syncRef.current = sync; });
+
+  // Aplica un cambio de estado (objeto o función) y marca para guardar las noticias que cambiaron
+  const actualizarConGuardado = (cambio) => setState(prev => {
+    const next = typeof cambio === 'function' ? cambio(prev) : cambio;
+    syncRef.current.marcarCambios('noticias', prev.noticias, next.noticias);
+    return next;
+  });
 
   useEffect(() => {
     saveState(state);
@@ -37,6 +51,10 @@ export default function App() {
     setToast(true);
     toastTimer.current = setTimeout(() => setToast(false), 1600);
   }, [state]);
+
+  const estadoActualRef = useRef(state);
+  useEffect(() => { estadoActualRef.current = state; }, [state]);
+  const omitidas = useRef(new Set()); // búsquedas automáticas que ya importó otra computadora
 
   // El programador vive en Node/Vite, no en el navegador.
   // El navegador importa las ejecuciones persistidas al abrirse y periódicamente.
@@ -49,7 +67,23 @@ export default function App() {
         const db = await res.json();
         if (!activo) return;
         setEstadoFuentes(db.fuentes || {});
-        setState(prev => {
+        // Con Supabase: se espera a que carguen los datos y cada búsqueda automática se reserva
+        // en la base, para que si varias computadoras la ejecutaron solo una la importe
+        const s = syncRef.current;
+        if (s.configurado && !s.listo) return;
+        if (s.conectado) {
+          const conocidas = new Set([...(estadoActualRef.current.busquedas || []).map(b => b.id), ...omitidas.current]);
+          const pendientes = [];
+          for (const item of (db.pendientes || [])) {
+            if (conocidas.has(item.registro.id)) continue;
+            if (await s.reclamarBusqueda(item.registro)) pendientes.push(item);
+            else omitidas.current.add(item.registro.id);
+          }
+          db.pendientes = pendientes;
+          db.busquedas = (db.busquedas || []).filter(b => !omitidas.current.has(b.id));
+          if (!activo) return;
+        }
+        actualizarConGuardado(prev => {
           let next = prev;
           const ids = new Set((prev.busquedas || []).map(b => b.id));
           for (const item of (db.pendientes || [])) {
@@ -242,20 +276,46 @@ export default function App() {
   // Todos los candidatos en bandeja son pendientes (se eliminan al decidir)
   const pendientes = state.candidatos.length;
 
+  // ── Enlaces con Supabase: se guardan los cambios sin alterar la lógica anterior ──
+  if (sync.errorConfiguracion || sync.requiereLogin || sync.preparando || (sync.errorCarga && !sync.listo)) {
+    return <Login sync={sync} />;
+  }
+
+  function decisionConGuardado(candidatoId, decision, motivo) {
+    const candidato = state.candidatos.find(c => c.id === candidatoId);
+    handleDecision(candidatoId, decision, motivo);
+    sync.registrarDecision(candidato, decision, motivo);
+  }
+
+  function clientesConGuardado(nuevoState) {
+    sync.marcarCambios('clientes', state.clientes, nuevoState.clientes);
+    handleClientesChange(nuevoState);
+  }
+
+  function restablecerConRecarga() {
+    if (!sync.conectado) return handleRestablecer();
+    // Con Supabase la base es compartida: se avisa que el borrado afecta a todo el equipo
+    if (!confirm('¿Restablecer todos los datos? Se borrarán los candidatos, las decisiones, la bitácora, las noticias consultadas y el historial de búsquedas de la base de datos para TODO el equipo.')) return;
+    clearState();
+    setState(JSON.parse(JSON.stringify(ESTADO_INICIAL)));
+    setVista('dashboard');
+    sync.restablecer();
+  }
+
   return (
     <>
       <Navbar
         vistaActiva={vista}
         onCambiarVista={setVista}
         pendientes={pendientes}
-        onRestablecer={handleRestablecer}
+        onRestablecer={restablecerConRecarga}
       />
       <div className="app-main">
         {vista === 'dashboard' && <Dashboard state={state} estadoFuentes={estadoFuentes} onCambiarVista={setVista} />}
-        {vista === 'bandeja'  && <Bandeja  state={state} onDecision={handleDecision} />}
-        {vista === 'clientes' && <Clientes state={state} onChange={handleClientesChange} />}
-        {vista === 'noticias' && <Noticias state={state} onChange={setState} />}
-        {vista === 'fuentes'  && <Fuentes  state={state} onChange={setState} estadoFuentes={estadoFuentes} />}
+        {vista === 'bandeja'  && <Bandeja  state={state} onDecision={decisionConGuardado} />}
+        {vista === 'clientes' && <Clientes state={state} onChange={clientesConGuardado} />}
+        {vista === 'noticias' && <Noticias state={state} onChange={actualizarConGuardado} />}
+        {vista === 'fuentes'  && <Fuentes  state={state} onChange={actualizarConGuardado} estadoFuentes={estadoFuentes} />}
         {vista === 'bitacora' && (
           <>
             <Bitacora state={state} />
@@ -265,6 +325,7 @@ export default function App() {
         {vista === 'metricas' && <Metricas state={state} />}
       </div>
       {toast && <div className="autosave-toast">✓ Guardado</div>}
+      <EstadoConexion sync={sync} />
     </>
   );
 }

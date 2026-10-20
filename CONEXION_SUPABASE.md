@@ -24,6 +24,7 @@ Si un valor está mal escrito, la app muestra en pantalla qué corregir. Despué
 | Fuentes: noticias que trae "Consultar fuentes" | Tabla `noticias` (`origen = publica_autorizada`, con URL, fecha y texto completo) |
 | Candidatos generados por "Ejecutar Agente" o al editar clientes | Tabla `candidatos` (sin duplicar) |
 | Aceptar, Investigar o Rechazar en la bandeja | Tabla `bitacora`, con el correo del usuario |
+| Historial de búsquedas (botón Consultar y búsqueda automática de las 8 p. m.) | Tabla `busquedas` (requiere `07_busquedas.sql`). Solo una búsqueda automática por día para todo el equipo |
 
 ## Qué queda solo en la computadora
 

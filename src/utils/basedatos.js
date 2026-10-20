@@ -134,6 +134,7 @@ export function bitacoraDesdeBD(r) {
     candidatoNombre: s.nombre_extraido || r.candidato_id,
     cargoExtraido: s.cargo_extraido || '',
     clienteId: s.cliente_id || '',
+    noticiaId: s.noticia_id || '',
     score: s.score ?? null,
     prioridad: s.prioridad || '',
     decision: r.decision,
@@ -221,6 +222,93 @@ export function candidatoHaciaBD(c) {
     score: c.score,
     prioridad: c.prioridad,
   };
+}
+
+// ── Historial de búsquedas (manuales y automáticas) ─────────────────────────
+
+const ZONA = 'America/Guatemala';
+
+export function busquedaDesdeBD(r) {
+  const fecha = new Date(r.fecha_hora);
+  return {
+    id: r.id,
+    tipo: r.tipo,
+    timestamp: r.fecha_hora,
+    fecha: fecha.toLocaleDateString('es-GT', { timeZone: ZONA }),
+    hora: fecha.toLocaleTimeString('es-GT', { timeZone: ZONA }),
+    ...(r.fecha_clave ? { fechaClave: r.fecha_clave } : {}),
+    fuentesConsultadas: r.fuentes_consultadas,
+    fuentesConNoticias: r.fuentes_con_noticias,
+    sinMenciones: r.sin_menciones,
+    errores: r.errores,
+    noticiasEncontradas: r.noticias_encontradas,
+    noticiasAgregadas: r.noticias_agregadas,
+    candidatosGenerados: r.candidatos_generados,
+    fuentesConError: r.fuentes_con_error || [],
+    registradoPor: r.registrado_por || '',
+  };
+}
+
+export function busquedaHaciaBD(b) {
+  return {
+    id: b.id,
+    tipo: b.tipo === 'automatica' ? 'automatica' : 'manual',
+    fecha_hora: b.timestamp,
+    fecha_clave: b.tipo === 'automatica' ? (b.fechaClave || String(b.timestamp).slice(0, 10)) : null,
+    fuentes_consultadas: b.fuentesConsultadas ?? 0,
+    fuentes_con_noticias: b.fuentesConNoticias ?? 0,
+    sin_menciones: b.sinMenciones ?? 0,
+    errores: b.errores ?? 0,
+    noticias_encontradas: b.noticiasEncontradas ?? 0,
+    noticias_agregadas: b.noticiasAgregadas ?? null,
+    candidatos_generados: b.candidatosGenerados ?? null,
+    fuentes_con_error: b.fuentesConError || [],
+  };
+}
+
+/** La tabla busquedas se crea con 07_busquedas.sql; si aún no existe, la app sigue funcionando. */
+function faltaTabla(error) {
+  return error && (error.code === '42P01' || error.code === 'PGRST205' || /busquedas/.test(error.message || '') && /not (exist|find)|schema cache/i.test(error.message || ''));
+}
+
+export async function cargarBusquedas() {
+  const { data, error } = await supabase.from('busquedas').select('*')
+    .order('fecha_hora', { ascending: false }).limit(500);
+  if (faltaTabla(error)) return null;
+  return verificar({ data, error }, 'Historial de búsquedas').map(busquedaDesdeBD);
+}
+
+/** Guarda búsquedas nuevas; las que ya existen se ignoran. Devuelve false si falta la tabla. */
+export async function insertarBusquedas(busquedas) {
+  if (busquedas.length === 0) return true;
+  const { error } = await supabase.from('busquedas')
+    .upsert(busquedas.map(busquedaHaciaBD), { onConflict: 'id', ignoreDuplicates: true });
+  if (faltaTabla(error)) return false;
+  if (error && error.code === '23505' && busquedas.length > 1) {
+    // Una del lote choca con la búsqueda automática del día que registró otra computadora:
+    // se guardan una por una para no perder las demás
+    for (const b of busquedas) await insertarBusquedas([b]);
+    return true;
+  }
+  // Otra computadora ya registró la búsqueda automática de ese día: no es un error
+  if (error && error.code === '23505') return true;
+  verificar({ error }, 'Guardar historial de búsquedas');
+  return true;
+}
+
+/**
+ * Reserva la búsqueda automática del día para esta computadora.
+ * Devuelve false si otra computadora del equipo ya la registró (evita noticias duplicadas).
+ */
+export async function reclamarBusquedaAutomatica(registro) {
+  const { error } = await supabase.from('busquedas').insert(busquedaHaciaBD({ ...registro, tipo: 'automatica' }));
+  if (!error || faltaTabla(error)) return true;
+  if (error.code === '23505') {
+    // Mismo id (ya la importó esta misma computadora antes) o mismo día (otra computadora)
+    const { data } = await supabase.from('busquedas').select('id').eq('id', registro.id).maybeSingle();
+    return Boolean(data);
+  }
+  throw new Error(`Búsqueda automática: ${mensajeError(error)}`);
 }
 
 // ── Operaciones ──────────────────────────────────────────────────────────────
