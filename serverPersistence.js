@@ -20,3 +20,6 @@ export function recordRun(resultado, auto = false) {
  if (auto) { db.ultimaAuto = r.fechaClave; db.pendientes.push(resultado); db.pendientes = db.pendientes.slice(-30); }
  writeDB(db); return db;
 }
+// Restablecer: borra el historial y las búsquedas pendientes de importar.
+// Conserva ultimaAuto (para no repetir hoy la búsqueda automática) y el estado de las fuentes.
+export function resetRuns() { const db = readDB(); db.busquedas = []; db.pendientes = []; writeDB(db); return db; }

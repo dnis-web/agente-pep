@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import { readDB, recordRun } from './serverPersistence.js'
+import { readDB, recordRun, resetRuns } from './serverPersistence.js'
 import { startScheduler } from './serverScheduler.js'
 import { TODOS_DOMINIOS_AUTORIZADOS } from './src/data/fuentesAutorizadas.js'
 
@@ -12,6 +12,12 @@ const proxyPlugin = {
     const stop = startScheduler();
     server.httpServer?.on('close', stop);
     server.middlewares.use('/api/pep/status', (req,res) => { res.setHeader('Content-Type','application/json'); res.end(JSON.stringify(readDB())); });
+    server.middlewares.use('/api/pep/reset', (req,res) => {
+      const origin = req.headers.origin;
+      if (origin && !/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) {res.writeHead(403);res.end('Origen no autorizado');return;}
+      if (req.method !== 'POST') {res.writeHead(405);res.end();return;}
+      resetRuns(); res.writeHead(200,{'Content-Type':'application/json'}); res.end('{"ok":true}');
+    });
     server.middlewares.use('/api/pep/manual', (req,res) => {
       const origin = req.headers.origin;
       if (origin && !/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) {res.writeHead(403);res.end('Origen no autorizado');return;}

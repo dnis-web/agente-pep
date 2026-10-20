@@ -299,7 +299,10 @@ export default function App() {
     clearState();
     setState(JSON.parse(JSON.stringify(ESTADO_INICIAL)));
     setVista('dashboard');
-    sync.restablecer();
+    // También se vacía el historial local del servidor (data-runtime), si no la app lo vuelve a importar
+    fetch('/api/pep/reset', { method: 'POST' })
+      .catch(e => console.warn('No se pudo limpiar el historial local:', e.message))
+      .finally(() => sync.restablecer());
   }
 
   return (
