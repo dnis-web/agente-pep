@@ -6,7 +6,8 @@ import { supabase } from '../lib/supabase';
 const PAGE_SIZE = 20;
 
 // Valores reales usados en public.bitacora de este proyecto
-const DECISIONES = ['', 'Aceptado', 'Rechazado', 'Investigar más'];
+// En la base la decisión se guarda como 'Investigar' (el botón de la bandeja dice "Investigar más")
+const DECISIONES = ['', 'Aceptado', 'Rechazado', 'Investigar'];
 
 const FMT_FECHA = new Intl.DateTimeFormat('es-GT', {
   day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Guatemala',
@@ -92,18 +93,15 @@ export default function Auditoria() {
 
       let query = supabase
         .from('bitacora')
-        .select('id, candidato_id, decision, motivo, analista_id, fecha_hora, snapshot', { count: 'exact' })
+        .select('*', { count: 'exact' })
         .order('fecha_hora', { ascending: false })
         .range(desde, hasta);
 
       if (filtroCandidato.trim()) query = query.ilike('candidato_id', `%${filtroCandidato.trim()}%`);
       if (filtroDecision)         query = query.eq('decision', filtroDecision);
-      if (filtroDesde)            query = query.gte('fecha_hora', new Date(filtroDesde).toISOString());
-      if (filtroHasta) {
-        const h = new Date(filtroHasta);
-        h.setHours(23, 59, 59, 999);
-        query = query.lte('fecha_hora', h.toISOString());
-      }
+      // Las fechas del filtro son días completos en hora de Guatemala (UTC-6, sin horario de verano)
+      if (filtroDesde)            query = query.gte('fecha_hora', `${filtroDesde}T00:00:00-06:00`);
+      if (filtroHasta)            query = query.lte('fecha_hora', `${filtroHasta}T23:59:59.999-06:00`);
 
       const { data, error: sbError, count } = await query;
 
@@ -257,7 +255,7 @@ export default function Auditoria() {
                           : '—'}
                       </td>
                       <td className="auditoria-analista" title={reg.analista_id}>
-                        {reg.analista_id || '—'}
+                        {reg.analista_email || reg.analista_id || '—'}
                       </td>
                       <td className="auditoria-col-accion">
                         {reg.snapshot

@@ -371,7 +371,7 @@ export async function registrarDecision(candidatoIdBD, decision, motivo) {
   return verificar(
     await supabase.from('bitacora')
       .insert({ candidato_id: candidatoIdBD, decision, motivo })
-      .select('id, analista_id, fecha_hora')
+      .select('*')
       .single(),
     'Registrar decisión',
   );
