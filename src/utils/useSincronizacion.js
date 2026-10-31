@@ -314,7 +314,7 @@ export function useSincronizacion(state, setState) {
       if (!idBD) throw new Error('No se encontró el candidato en la base; la decisión no se guardó.');
       try {
         const fila = await registrarDecisionBD(idBD, decision, motivo);
-        marcarEntrada({ _bdId: fila.id, candidatoId: idBD, analista: fila.analista_email, fecha: fila.fecha_hora });
+        marcarEntrada({ _bdId: fila.id, candidatoId: idBD, analista: fila.analista_id, fecha: fila.fecha_hora });
         setAviso({ tipo: 'ok', texto: `Decisión registrada en la bitácora (${idBD})` });
       } catch (e) {
         // La decisión no se guardó: se quita de la bitácora local y el candidato vuelve a la bandeja

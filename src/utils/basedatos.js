@@ -139,7 +139,7 @@ export function bitacoraDesdeBD(r) {
     prioridad: s.prioridad || '',
     decision: r.decision,
     motivo: r.motivo,
-    analista: r.analista_email || '',
+    analista: r.analista_email || r.analista_id || '',
     fecha: r.fecha_hora,
     _bdId: r.id,
   };
@@ -371,7 +371,7 @@ export async function registrarDecision(candidatoIdBD, decision, motivo) {
   return verificar(
     await supabase.from('bitacora')
       .insert({ candidato_id: candidatoIdBD, decision, motivo })
-      .select('id, analista_email, fecha_hora')
+      .select('id, analista_id, fecha_hora')
       .single(),
     'Registrar decisión',
   );

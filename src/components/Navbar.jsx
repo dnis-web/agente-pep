@@ -7,6 +7,7 @@ export default function Navbar({ vistaActiva, onCambiarVista, pendientes, onRest
     { key: 'fuentes',   label: '🌐 Fuentes',         badge: null },
     { key: 'bitacora',  label: '📋 Bitácora',        badge: null },
     { key: 'metricas',  label: '📊 Métricas',        badge: null },
+    { key: 'auditoria', label: '🔍 Auditoría',       badge: null },
   ];
 
   return (

@@ -14,6 +14,7 @@ import BitacoraBusquedas from './components/BitacoraBusquedas';
 import Metricas from './components/Metricas';
 import Fuentes from './components/Fuentes';
 import Login from './components/Login';
+import Auditoria from './components/Auditoria';
 import EstadoConexion from './components/EstadoConexion';
 import { useSincronizacion } from './utils/useSincronizacion';
 import './index.css';
@@ -326,6 +327,7 @@ export default function App() {
           </>
         )}
         {vista === 'metricas' && <Metricas state={state} />}
+        {vista === 'auditoria' && <Auditoria />}
       </div>
       {toast && <div className="autosave-toast">✓ Guardado</div>}
       <EstadoConexion sync={sync} />
