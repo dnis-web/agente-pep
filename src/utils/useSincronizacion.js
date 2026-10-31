@@ -37,6 +37,7 @@ export function useSincronizacion(state, setState) {
   const [cargado, setCargado] = useState(false);
   const [aviso, setAviso] = useState({ tipo: 'ok', texto: '' });
   const [errorCarga, setErrorCarga] = useState('');
+  const [rol, setRol] = useState(null); // admin | auditor | analista (tabla perfiles)
 
   const estadoActual = useRef(state);
   useEffect(() => { estadoActual.current = state; }, [state]);
@@ -66,7 +67,7 @@ export function useSincronizacion(state, setState) {
     });
     const { data } = supabase.auth.onAuthStateChange((_evento, nuevaSesion) => {
       setSesion(nuevaSesion);
-      if (!nuevaSesion) { setCargado(false); setErrorCarga(''); }
+      if (!nuevaSesion) { setCargado(false); setErrorCarga(''); setRol(null); }
     });
     return () => data.subscription.unsubscribe();
   }, []);
@@ -123,6 +124,9 @@ export function useSincronizacion(state, setState) {
       });
       // Noticias consultadas en esta computadora que aún no están en la base: se guardan ahora
       programarGuardadoRef.current?.();
+      // Rol del usuario conectado: decide qué botones ve (Restablecer, Auditoría)
+      const { data: rolUsuario } = await supabase.rpc('rol_actual');
+      setRol(rolUsuario || null);
       setCargado(true);
       setAviso({ tipo: 'ok', texto: 'Datos cargados' });
     } catch (e) {
@@ -364,6 +368,7 @@ export function useSincronizacion(state, setState) {
     listo: cargado,
     cargando,
     usuario: sesion?.user?.email || '',
+    rol,
     aviso,
     iniciarSesion,
     cerrarSesion,

@@ -1,4 +1,4 @@
-export default function Navbar({ vistaActiva, onCambiarVista, pendientes, onRestablecer }) {
+export default function Navbar({ vistaActiva, onCambiarVista, pendientes, onRestablecer, puedeAuditar = true, puedeRestablecer = true }) {
   const vistas = [
     { key: 'dashboard', label: '◫ Inicio', badge: null },
     { key: 'bandeja',   label: '📥 Bandeja',        badge: pendientes || null },
@@ -8,7 +8,7 @@ export default function Navbar({ vistaActiva, onCambiarVista, pendientes, onRest
     { key: 'bitacora',  label: '📋 Bitácora',        badge: null },
     { key: 'metricas',  label: '📊 Métricas',        badge: null },
     { key: 'auditoria', label: '🔍 Auditoría',       badge: null },
-  ];
+  ].filter(v => v.key !== 'auditoria' || puedeAuditar); // Auditoría: solo admin y auditor
 
   return (
     <nav className="navbar">
@@ -30,9 +30,11 @@ export default function Navbar({ vistaActiva, onCambiarVista, pendientes, onRest
             {v.badge ? <span className="navbar-badge">{v.badge}</span> : null}
           </button>
         ))}
-        <button className="navbar-link navbar-reset" onClick={onRestablecer} title="Restablecer datos originales">
-          🔄 Restablecer
-        </button>
+        {puedeRestablecer && (
+          <button className="navbar-link navbar-reset" onClick={onRestablecer} title="Restablecer datos originales">
+            🔄 Restablecer
+          </button>
+        )}
       </div>
     </nav>
   );

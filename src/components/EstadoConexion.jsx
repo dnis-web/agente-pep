@@ -14,7 +14,7 @@ export default function EstadoConexion({ sync }) {
     <div className={`conexion-estado ${tipo}`} role="status" title={mensaje || sync.aviso?.texto || 'Conectado'}>
       <span className="conexion-punto" />
       <span className="conexion-texto">
-        <span className="conexion-usuario">{sync.usuario}</span>
+        <span className="conexion-usuario">{sync.usuario}{sync.rol ? ` · ${sync.rol}` : ''}</span>
         {mensaje && <span className="conexion-mensaje"> · {mensaje}</span>}
       </span>
       <button className="conexion-boton" onClick={sync.recargar} disabled={sync.cargando}>

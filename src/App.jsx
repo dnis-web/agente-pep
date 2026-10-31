@@ -293,7 +293,13 @@ export default function App() {
     handleClientesChange(nuevoState);
   }
 
+  // Permisos por rol (sin Supabase, modo local: todo visible como antes)
+  //   admin: todo · auditor: todo menos Restablecer · analista: todo menos Restablecer y Auditoría
+  const puedeRestablecer = !sync.conectado || sync.rol === 'admin';
+  const puedeAuditar = !sync.conectado || sync.rol === 'admin' || sync.rol === 'auditor';
+
   function restablecerConRecarga() {
+    if (!puedeRestablecer) return;
     if (!sync.conectado) return handleRestablecer();
     // Con Supabase la base es compartida: se avisa que el borrado afecta a todo el equipo
     if (!confirm('¿Restablecer todos los datos? Se borrarán los candidatos, las decisiones, la bitácora, las noticias consultadas y el historial de búsquedas de la base de datos para TODO el equipo.')) return;
@@ -313,6 +319,8 @@ export default function App() {
         onCambiarVista={setVista}
         pendientes={pendientes}
         onRestablecer={restablecerConRecarga}
+        puedeRestablecer={puedeRestablecer}
+        puedeAuditar={puedeAuditar}
       />
       <div className="app-main">
         {vista === 'dashboard' && <Dashboard state={state} estadoFuentes={estadoFuentes} onCambiarVista={setVista} />}
@@ -327,7 +335,7 @@ export default function App() {
           </>
         )}
         {vista === 'metricas' && <Metricas state={state} />}
-        {vista === 'auditoria' && <Auditoria />}
+        {vista === 'auditoria' && puedeAuditar && <Auditoria />}
       </div>
       {toast && <div className="autosave-toast">✓ Guardado</div>}
       <EstadoConexion sync={sync} />
